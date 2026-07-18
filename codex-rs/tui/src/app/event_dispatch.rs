@@ -400,6 +400,10 @@ impl App {
             AppEvent::CommitTick => {
                 self.chat_widget.on_commit_tick();
             }
+            AppEvent::StatusLineTimerTick => {
+                self.chat_widget.on_status_line_timer_tick();
+                tui.frame_requester().schedule_frame();
+            }
             AppEvent::Exit(mode) => {
                 if mode == ExitMode::ShutdownFirst {
                     self.show_shutdown_feedback(tui)?;

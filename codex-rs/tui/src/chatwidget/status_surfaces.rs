@@ -36,6 +36,7 @@ const TERMINAL_TITLE_ACTION_REQUIRED_INTERVAL: Duration = Duration::from_secs(1)
 /// Prefix shown in the terminal title when the agent is blocked on user input.
 const TERMINAL_TITLE_ACTION_REQUIRED_PREFIX: &str = "[ ! ] Action Required";
 const TERMINAL_TITLE_ACTION_REQUIRED_PREFIX_HIDDEN: &str = "[ . ] Action Required";
+const STATUS_LINE_TIMER_INTERVAL: Duration = Duration::from_secs(/*secs*/ 1);
 
 #[derive(Debug)]
 /// Parsed status-surface configuration for one refresh pass.
@@ -200,6 +201,31 @@ impl ChatWidget {
             .then(|| self.status_line_pull_request_url())
             .flatten();
         self.set_status_line_hyperlink(hyperlink_url);
+        if selections
+            .status_line_items
+            .contains(&StatusLineItem::SessionTimer)
+        {
+            self.schedule_status_line_timer_tick();
+        } else {
+            self.status_line_timer_tick_pending = false;
+        }
+    }
+
+    pub(crate) fn on_status_line_timer_tick(&mut self) {
+        self.status_line_timer_tick_pending = false;
+        self.refresh_status_line();
+    }
+
+    fn schedule_status_line_timer_tick(&mut self) {
+        if self.status_line_timer_tick_pending {
+            return;
+        }
+        self.status_line_timer_tick_pending = true;
+        let app_event_tx = self.app_event_tx.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(STATUS_LINE_TIMER_INTERVAL);
+            app_event_tx.send(AppEvent::StatusLineTimerTick);
+        });
     }
 
     /// Clears the terminal title Codex most recently wrote, if any.
@@ -727,6 +753,9 @@ impl ChatWidget {
                 "{} out",
                 format_tokens_compact(self.status_line_total_usage().output_tokens)
             )),
+            StatusLineItem::SessionTimer => {
+                Some(format_session_timer(self.session_started_at.elapsed()))
+            }
             StatusLineItem::SessionId => self.thread_id.map(|id| id.to_string()),
             StatusLineItem::FastMode => Some(
                 if self.current_service_tier() == Some(ServiceTier::Fast.request_value()) {
@@ -785,6 +814,7 @@ impl ChatWidget {
             StatusSurfacePreviewItem::UsedTokens => StatusLineItem::UsedTokens,
             StatusSurfacePreviewItem::TotalInputTokens => StatusLineItem::TotalInputTokens,
             StatusSurfacePreviewItem::TotalOutputTokens => StatusLineItem::TotalOutputTokens,
+            StatusSurfacePreviewItem::SessionTimer => StatusLineItem::SessionTimer,
             StatusSurfacePreviewItem::SessionId => StatusLineItem::SessionId,
             StatusSurfacePreviewItem::FastMode => StatusLineItem::FastMode,
             StatusSurfacePreviewItem::RawOutput => StatusLineItem::RawOutput,
@@ -1092,6 +1122,21 @@ fn matches_window_label(window: &RateLimitWindowDisplay, label: &str) -> bool {
         == Some(label)
 }
 
+fn format_session_timer(elapsed: Duration) -> String {
+    let total_seconds = elapsed.as_secs();
+    let hours = total_seconds / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+    let seconds = total_seconds % 60;
+
+    if hours > 0 {
+        format!("{hours:02}h {minutes:02}m")
+    } else if minutes > 0 {
+        format!("{minutes:02}m {seconds:02}s")
+    } else {
+        format!("{seconds}s")
+    }
+}
+
 fn permissions_display(config: &Config) -> String {
     let active_permission_profile = config.permissions.active_permission_profile();
     if let Some(active_permission_profile) = active_permission_profile.as_ref()
@@ -1152,3 +1197,7 @@ where
     }
     (items, invalid)
 }
+
+#[cfg(test)]
+#[path = "status_surfaces_tests.rs"]
+mod tests;
