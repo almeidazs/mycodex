@@ -352,6 +352,7 @@ mod input_flow;
 mod input_restore;
 mod input_submission;
 mod interrupts;
+mod process_manager;
 use self::interrupts::InterruptManager;
 mod keymap_picker;
 mod mcp_startup;
@@ -359,6 +360,7 @@ use self::mcp_startup::McpStartupStatus;
 mod pets;
 mod session_flow;
 mod session_header;
+mod session_recap;
 use self::session_header::SessionHeader;
 mod hook_lifecycle;
 mod hooks;
@@ -371,6 +373,7 @@ use self::skills::find_skill_mentions_with_tool_mentions;
 use self::skills::is_app_mentionable;
 mod plugin_catalog;
 mod plugins;
+mod queue_manager;
 use self::plugins::PluginInstallAuthFlowState;
 use self::plugins::PluginListFetchState;
 use self::plugins::PluginsCacheState;
@@ -405,6 +408,7 @@ mod service_tiers;
 mod settings;
 mod settings_popups;
 mod side;
+mod themes;
 use self::safety_buffering::SafetyBufferingState;
 mod status_state;
 mod windows_sandbox_prompts;
@@ -429,6 +433,8 @@ mod user_messages;
 use self::user_messages::PendingSteer;
 use self::user_messages::PendingSteerCompareKey;
 use self::user_messages::QueueDrain;
+use self::user_messages::QueueTurnOutcome;
+use self::user_messages::QueuedMessageCondition;
 use self::user_messages::QueuedUserMessage;
 use self::user_messages::ShellEscapePolicy;
 use self::user_messages::ThreadComposerState;
@@ -754,6 +760,7 @@ pub(crate) struct ChatWidget {
     current_goal_status_indicator: Option<GoalStatusIndicator>,
     current_goal_status: Option<GoalStatusState>,
     external_editor_state: ExternalEditorState,
+    session_recap: crate::session_recap::SessionRecapState,
     last_rendered_user_message_display: Option<UserMessageDisplay>,
     last_non_retry_error: Option<(String, String)>,
 }
@@ -1467,6 +1474,9 @@ impl ChatWidget {
     }
 
     pub(crate) fn add_info_message(&mut self, message: String, hint: Option<String>) {
+        if message.starts_with('✓') {
+            self.recap_completed(message.clone());
+        }
         self.add_to_history(history_cell::new_info_event(message, hint));
         self.request_redraw();
     }
@@ -1484,11 +1494,13 @@ impl ChatWidget {
     }
 
     pub(crate) fn add_warning_message(&mut self, message: String) {
+        self.recap_problem(message.clone());
         self.add_to_history(history_cell::new_warning_event(message));
         self.request_redraw();
     }
 
     pub(crate) fn add_error_message(&mut self, message: String) {
+        self.recap_problem(message.clone());
         self.add_to_history(history_cell::new_error_event(message));
         self.request_redraw();
     }

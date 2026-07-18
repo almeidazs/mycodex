@@ -174,9 +174,72 @@ pub(crate) enum KeymapEditIntent {
     ReplaceOne { old_key: String },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum QueueManagerMoveDirection {
+    Up,
+    Down,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum QueueManagerAction {
+    SendNow {
+        index: usize,
+    },
+    Edit {
+        index: usize,
+    },
+    Delete {
+        index: usize,
+    },
+    TogglePause,
+    CycleCondition {
+        index: usize,
+    },
+    Move {
+        index: usize,
+        direction: QueueManagerMoveDirection,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ProcessManagerAction {
+    ViewOutput {
+        process_id: String,
+    },
+    FollowLogs {
+        process_id: String,
+    },
+    FollowTick {
+        process_id: String,
+    },
+    Kill {
+        process_id: String,
+    },
+    Restart {
+        process_id: String,
+        command: String,
+        cwd: String,
+    },
+    OpenUrl {
+        url: String,
+    },
+    CopyCommand {
+        command: String,
+    },
+}
+
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub(crate) enum AppEvent {
+    /// Open or refresh the managed background process view.
+    OpenProcessManager,
+
+    /// Apply an action from the background process manager.
+    ProcessManagerAction(ProcessManagerAction),
+
+    /// Apply an action from the queued follow-up manager.
+    QueueManagerAction(QueueManagerAction),
+
     /// Open the agent picker for switching active threads.
     OpenAgentPicker,
     /// Switch the active thread to the selected agent.
@@ -1084,6 +1147,19 @@ pub(crate) enum AppEvent {
 
     /// Runtime syntax theme preview changed; refresh theme-derived UI colors.
     SyntaxThemePreviewed,
+
+    /// Apply a user-confirmed semantic UI theme selection.
+    UiThemeSelected {
+        id: String,
+    },
+
+    /// Runtime semantic UI theme preview changed.
+    UiThemePreviewed,
+
+    /// Apply a semantic UI theme preview from an explicit UI action.
+    UiThemePreviewRequested {
+        id: String,
+    },
 
     /// Open set/remove actions for the selected keymap action.
     OpenKeymapActionMenu {

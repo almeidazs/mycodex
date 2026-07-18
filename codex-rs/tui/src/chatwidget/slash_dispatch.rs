@@ -267,6 +267,12 @@ impl ChatWidget {
             SlashCommand::Review => {
                 self.open_review_popup();
             }
+            SlashCommand::Queue => {
+                self.open_queue_manager();
+            }
+            SlashCommand::Recap => {
+                self.add_session_recap_output();
+            }
             SlashCommand::Rename => {
                 self.session_telemetry
                     .counter("codex.thread.rename", /*inc*/ 1, &[]);
@@ -467,11 +473,14 @@ impl ChatWidget {
             SlashCommand::Theme => {
                 self.open_theme_picker();
             }
+            SlashCommand::Themes => {
+                self.open_ui_theme_manager();
+            }
             SlashCommand::Pets => {
                 self.open_pets_picker();
             }
-            SlashCommand::Ps => {
-                self.add_ps_output();
+            SlashCommand::Processes | SlashCommand::Ps => {
+                self.app_event_tx.send(AppEvent::OpenProcessManager);
             }
             SlashCommand::Stop => {
                 self.clean_background_terminals();
@@ -683,6 +692,9 @@ impl ChatWidget {
             }
             SlashCommand::Ide => {
                 self.handle_ide_command_args(trimmed);
+            }
+            SlashCommand::Themes => {
+                self.handle_themes_command_args(trimmed);
             }
             SlashCommand::Mcp => match trimmed.to_ascii_lowercase().as_str() {
                 "verbose" => self.add_mcp_output(McpServerStatusDetail::Full),
@@ -1048,6 +1060,7 @@ impl ChatWidget {
             | SlashCommand::Status
             | SlashCommand::Usage
             | SlashCommand::DebugConfig
+            | SlashCommand::Processes
             | SlashCommand::Ps
             | SlashCommand::Stop
             | SlashCommand::MemoryDrop
@@ -1060,6 +1073,8 @@ impl ChatWidget {
             | SlashCommand::Raw
             | SlashCommand::Vim
             | SlashCommand::Diff
+            | SlashCommand::Queue
+            | SlashCommand::Recap
             | SlashCommand::App
             | SlashCommand::Rename
             | SlashCommand::TestApproval => QueueDrain::Continue,
@@ -1098,6 +1113,7 @@ impl ChatWidget {
             | SlashCommand::Title
             | SlashCommand::Statusline
             | SlashCommand::Theme
+            | SlashCommand::Themes
             | SlashCommand::Pets => QueueDrain::Stop,
         }
     }

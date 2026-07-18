@@ -162,6 +162,7 @@ mod selection_list;
 mod service_tier_resolution;
 mod session_archive_commands;
 mod session_log;
+mod session_recap;
 mod session_resume;
 mod session_state;
 mod shimmer;
@@ -179,6 +180,7 @@ mod terminal_probe;
 mod terminal_title;
 mod terminal_visualization_instructions;
 mod text_formatting;
+mod theme;
 mod theme_picker;
 mod thread_transcript;
 mod token_usage;
@@ -1647,6 +1649,19 @@ async fn run_ratatui_app(
         find_codex_home().ok().map(AbsolutePathBuf::into_path_buf),
     ) {
         config.startup_warnings.push(w);
+    }
+    if let Err(err) = crate::theme::initialize(&config.codex_home, config.tui_ui_theme.as_deref()) {
+        config
+            .startup_warnings
+            .push(format!("Failed to load UI theme: {err}"));
+    } else if config.tui_theme.is_none() && config.tui_ui_theme.is_some() {
+        let ui_theme = crate::theme::current();
+        if let Some(syntax_theme) = crate::render::highlight::resolve_theme_by_name(
+            &ui_theme.syntax_theme,
+            Some(&config.codex_home),
+        ) {
+            crate::render::highlight::set_syntax_theme(syntax_theme);
+        }
     }
 
     set_default_client_residency_requirement(config.enforce_residency.value());

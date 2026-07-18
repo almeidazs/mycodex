@@ -22,6 +22,16 @@ impl App {
         event: AppEvent,
     ) -> Result<AppRunControl> {
         match event {
+            AppEvent::OpenProcessManager => {
+                self.open_process_manager(app_server, None, None, false)
+                    .await;
+            }
+            AppEvent::ProcessManagerAction(action) => {
+                self.handle_process_manager_action(app_server, action).await;
+            }
+            AppEvent::QueueManagerAction(action) => {
+                self.chat_widget.handle_queue_manager_action(action);
+            }
             AppEvent::NewSession => {
                 self.start_fresh_session_with_summary_hint(
                     tui, app_server, /*session_start_source*/ None,
@@ -2291,6 +2301,71 @@ impl App {
             AppEvent::SyntaxThemePreviewed => {
                 self.refresh_status_line();
                 tui.frame_requester().schedule_frame();
+            }
+            AppEvent::UiThemeSelected { id } => {
+                match crate::theme::apply(&self.config.codex_home, &id) {
+                    Ok(result) => {
+                        let ui_theme_edit = crate::legacy_core::config::edit::ui_theme_edit(&id);
+                        let syntax_theme_edit = crate::legacy_core::config::edit::syntax_theme_edit(
+                            &result.theme.syntax_theme,
+                        );
+                        let apply_result = ConfigEditsBuilder::for_config(&self.config)
+                            .with_edits([ui_theme_edit, syntax_theme_edit])
+                            .apply()
+                            .await;
+                        match apply_result {
+                            Ok(()) => {
+                                if let Some(syntax_theme) =
+                                    crate::render::highlight::resolve_theme_by_name(
+                                        &result.theme.syntax_theme,
+                                        Some(&self.config.codex_home),
+                                    )
+                                {
+                                    crate::render::highlight::set_syntax_theme(syntax_theme);
+                                }
+                                self.chat_widget.add_info_message(
+                                    format!(
+                                        "UI theme set to {} ({})",
+                                        result.theme.name, result.theme.id
+                                    ),
+                                    None,
+                                );
+                                self.sync_tui_theme_selection(result.theme.syntax_theme);
+                                self.sync_tui_ui_theme_selection(id);
+                                self.refresh_status_line();
+                                tui.frame_requester().schedule_frame();
+                            }
+                            Err(err) => {
+                                tracing::error!(error = %err, "failed to persist UI theme selection");
+                                self.chat_widget
+                                    .add_error_message(format!("Failed to save UI theme: {err}"));
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        self.chat_widget
+                            .add_error_message(format!("Invalid UI theme `{id}`: {err}"));
+                    }
+                }
+            }
+            AppEvent::UiThemePreviewed => {
+                self.refresh_status_line();
+                tui.frame_requester().schedule_frame();
+            }
+            AppEvent::UiThemePreviewRequested { id } => {
+                match crate::theme::preview(&self.config.codex_home, &id) {
+                    Ok(result) => {
+                        self.chat_widget.add_info_message(
+                            format!("Previewing UI theme: {} ({})", result.theme.name, result.theme.id),
+                            Some("Press Enter in /themes to apply, or Esc to restore the previous preview.".to_string()),
+                        );
+                        self.refresh_status_line();
+                        tui.frame_requester().schedule_frame();
+                    }
+                    Err(err) => self
+                        .chat_widget
+                        .add_error_message(format!("Invalid UI theme `{id}`: {err}")),
+                }
             }
             AppEvent::OpenKeymapActionMenu { context, action } => {
                 self.chat_widget

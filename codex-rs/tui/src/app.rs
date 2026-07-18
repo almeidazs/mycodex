@@ -215,6 +215,7 @@ mod pending_interactive_replay;
 mod pets;
 mod platform_actions;
 mod plugin_mentions;
+mod process_manager;
 mod replay_filter;
 mod resize_reflow;
 mod safety_buffering;
@@ -1291,9 +1292,13 @@ See the Codex keymap documentation for supported actions and examples."
         } else {
             match event {
                 TuiEvent::Key(key_event) => {
+                    self.chat_widget
+                        .maybe_add_away_session_recap(Instant::now());
                     self.handle_key_event(tui, app_server, key_event).await;
                 }
                 TuiEvent::Paste(pasted) => {
+                    self.chat_widget
+                        .maybe_add_away_session_recap(Instant::now());
                     // Many terminals convert newlines to \r when pasting (e.g., iTerm2),
                     // but tui-textarea expects \n. Normalize CR to LF.
                     // [tui-textarea]: https://github.com/rhysd/tui-textarea/blob/4d18622eeac13b309e0ff6a55a46ac6706da68cf/src/textarea.rs#L782-L783
