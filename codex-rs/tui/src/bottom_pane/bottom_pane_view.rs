@@ -56,6 +56,11 @@ pub(crate) trait BottomPaneView: Renderable {
         None
     }
 
+    /// Follow target for process-manager views that need periodic refreshes.
+    fn process_manager_follow_target(&self) -> Option<&str> {
+        None
+    }
+
     /// Handle Ctrl-C while this view is active.
     fn on_ctrl_c(&mut self) -> CancellationEvent {
         CancellationEvent::NotHandled

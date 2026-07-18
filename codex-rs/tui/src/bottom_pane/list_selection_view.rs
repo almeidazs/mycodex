@@ -106,6 +106,7 @@ pub(crate) enum SelectionRowDisplay {
 /// One selectable item in the generic selection list.
 pub(crate) type SelectionAction = Box<dyn Fn(&AppEventSender) + Send + Sync>;
 pub(crate) type SelectionToggleAction = dyn Fn(bool, &AppEventSender) + Send + Sync;
+type SelectionPreviewCallback = Option<Box<dyn Fn(usize, &AppEventSender) + Send + Sync>>;
 
 pub(crate) struct SelectionToggle {
     pub is_on: bool,
@@ -200,6 +201,9 @@ pub(crate) struct SelectionViewParams {
     /// Receives the *actual* item index, not the filtered/visible index.
     pub on_selection_changed: OnSelectionChangedCallback,
 
+    /// Called when the user explicitly requests a preview of the selected row.
+    pub on_preview: SelectionPreviewCallback,
+
     /// Whether cancellation keys can dismiss the picker.
     pub allow_cancel: bool,
 
@@ -232,6 +236,7 @@ impl Default for SelectionViewParams {
             stacked_side_content: None,
             preserve_side_content_bg: false,
             on_selection_changed: None,
+            on_preview: None,
             allow_cancel: true,
             on_cancel: None,
         }
@@ -273,6 +278,8 @@ pub(crate) struct ListSelectionView {
 
     /// Called when the highlighted item changes (navigation, filter, number-key).
     on_selection_changed: OnSelectionChangedCallback,
+
+    on_preview: SelectionPreviewCallback,
 
     allow_cancel: bool,
 
@@ -405,6 +412,7 @@ impl ListSelectionView {
             stacked_side_content: params.stacked_side_content,
             preserve_side_content_bg: params.preserve_side_content_bg,
             on_selection_changed: params.on_selection_changed,
+            on_preview: params.on_preview,
             allow_cancel: params.allow_cancel,
             on_cancel: params.on_cancel,
             keymap,
@@ -759,6 +767,18 @@ impl ListSelectionView {
         }
     }
 
+    fn preview_selected(&self) {
+        if let Some(cb) = &self.on_preview
+            && let Some(actual) = self.selected_actual_idx()
+            && self
+                .active_items()
+                .get(actual)
+                .is_some_and(Self::item_is_enabled)
+        {
+            cb(actual, &self.app_event_tx);
+        }
+    }
+
     fn accept(&mut self) {
         let selected_actual_idx = self
             .state
@@ -979,6 +999,11 @@ impl BottomPaneView for ListSelectionView {
                 self.search_query.pop();
                 self.apply_filter();
             }
+            KeyEvent {
+                code: KeyCode::Char('p'),
+                modifiers: KeyModifiers::NONE,
+                ..
+            } if self.on_preview.is_some() => self.preview_selected(),
             KeyEvent {
                 code: KeyCode::Char(' '),
                 modifiers: KeyModifiers::NONE,

@@ -1,38 +1,45 @@
+#[cfg(test)]
 use crate::color::blend;
+#[cfg(test)]
 use crate::color::is_light;
+#[cfg(test)]
 use crate::terminal_palette::StdoutColorLevel;
+#[cfg(test)]
 use crate::terminal_palette::best_color;
-use crate::terminal_palette::default_bg;
-use crate::terminal_palette::default_fg;
+#[cfg(test)]
 use crate::terminal_palette::rgb_color;
-use crate::terminal_palette::stdout_color_level;
+#[cfg(test)]
 use ratatui::style::Color;
 use ratatui::style::Style;
+#[cfg(test)]
 use ratatui::style::Stylize;
 
+#[cfg(test)]
 const LIGHT_BG_ACCENT_RGB: (u8, u8, u8) = (0, 95, 135);
 // Decorative table rules should remain visible without competing with cell content.
+#[cfg(test)]
 const TABLE_SEPARATOR_FG_ALPHA: f32 = 0.20;
 
 pub fn user_message_style() -> Style {
-    user_message_style_for(default_bg())
+    crate::theme::current().components.user_message.body
 }
 
 pub fn proposed_plan_style() -> Style {
-    proposed_plan_style_for(default_bg())
+    crate::theme::current().surface.raised
 }
 
 /// Returns a low-contrast rule style for separators within markdown tables.
 pub(crate) fn table_separator_style() -> Style {
-    table_separator_style_for(default_fg(), default_bg(), stdout_color_level())
+    crate::theme::current().border.subtle
 }
 
 /// Returns the shared accent style for active or selected TUI controls.
 pub(crate) fn accent_style() -> Style {
-    accent_style_for(default_bg())
+    crate::theme::current().accent.primary
 }
 
 /// Returns the style for a user-authored message using the provided terminal background.
+#[cfg(test)]
 pub fn user_message_style_for(terminal_bg: Option<(u8, u8, u8)>) -> Style {
     match terminal_bg {
         Some(bg) => Style::default().bg(user_message_bg(bg)),
@@ -40,6 +47,7 @@ pub fn user_message_style_for(terminal_bg: Option<(u8, u8, u8)>) -> Style {
     }
 }
 
+#[cfg(test)]
 pub fn proposed_plan_style_for(terminal_bg: Option<(u8, u8, u8)>) -> Style {
     match terminal_bg {
         Some(bg) => Style::default().bg(proposed_plan_bg(bg)),
@@ -48,6 +56,7 @@ pub fn proposed_plan_style_for(terminal_bg: Option<(u8, u8, u8)>) -> Style {
 }
 
 /// Returns the shared accent style for the provided terminal background.
+#[cfg(test)]
 pub(crate) fn accent_style_for(terminal_bg: Option<(u8, u8, u8)>) -> Style {
     if terminal_bg.is_some_and(is_light) {
         Style::default().fg(best_color(LIGHT_BG_ACCENT_RGB)).bold()
@@ -56,6 +65,7 @@ pub(crate) fn accent_style_for(terminal_bg: Option<(u8, u8, u8)>) -> Style {
     }
 }
 
+#[cfg(test)]
 fn table_separator_style_for(
     terminal_fg: Option<(u8, u8, u8)>,
     terminal_bg: Option<(u8, u8, u8)>,
@@ -73,6 +83,7 @@ fn table_separator_style_for(
 }
 
 #[allow(clippy::disallowed_methods)]
+#[cfg(test)]
 pub fn user_message_bg(terminal_bg: (u8, u8, u8)) -> Color {
     let (top, alpha) = if is_light(terminal_bg) {
         ((0, 0, 0), 0.04)
@@ -83,6 +94,7 @@ pub fn user_message_bg(terminal_bg: (u8, u8, u8)) -> Color {
 }
 
 #[allow(clippy::disallowed_methods)]
+#[cfg(test)]
 pub fn proposed_plan_bg(terminal_bg: (u8, u8, u8)) -> Color {
     user_message_bg(terminal_bg)
 }

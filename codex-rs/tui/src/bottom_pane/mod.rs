@@ -105,7 +105,9 @@ mod footer;
 mod list_selection_view;
 mod memories_settings_view;
 mod mentions_v2;
+mod process_manager_view;
 pub(crate) mod prompt_args;
+mod queue_manager_view;
 mod skill_popup;
 mod skills_toggle_view;
 pub(crate) mod slash_commands;
@@ -123,6 +125,15 @@ pub(crate) use list_selection_view::SideContentWidth;
 pub(crate) use list_selection_view::popup_content_width;
 pub(crate) use list_selection_view::side_by_side_layout_widths;
 pub(crate) use memories_settings_view::MemoriesSettingsView;
+pub(crate) use process_manager_view::PROCESS_MANAGER_VIEW_ID;
+pub(crate) use process_manager_view::ProcessManagerItem;
+pub(crate) use process_manager_view::ProcessManagerStatus;
+pub(crate) use process_manager_view::ProcessManagerView;
+pub(crate) use process_manager_view::ProcessManagerViewParams;
+pub(crate) use queue_manager_view::QUEUE_MANAGER_VIEW_ID;
+pub(crate) use queue_manager_view::QueueManagerItem;
+pub(crate) use queue_manager_view::QueueManagerView;
+pub(crate) use queue_manager_view::QueueManagerViewParams;
 use slash_commands::ServiceTierCommand;
 mod feedback_view;
 mod hooks_browser_view;
@@ -1209,6 +1220,14 @@ impl BottomPane {
             .last()
             .filter(|view| view.view_id() == Some(view_id))
             .and_then(|view| view.active_tab_id())
+    }
+
+    pub(crate) fn active_process_manager_follow_target(&self) -> Option<String> {
+        self.view_stack
+            .last()
+            .filter(|view| view.view_id() == Some(PROCESS_MANAGER_VIEW_ID))
+            .and_then(|view| view.process_manager_follow_target())
+            .map(str::to_string)
     }
 
     pub(crate) fn dismiss_active_view_if_id(&mut self, view_id: &'static str) -> bool {

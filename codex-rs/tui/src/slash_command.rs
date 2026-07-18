@@ -29,6 +29,9 @@ pub enum SlashCommand {
     Import,
     Hooks,
     Review,
+    Queue,
+    Recap,
+    Processes,
     Rename,
     New,
     Archive,
@@ -53,6 +56,7 @@ pub enum SlashCommand {
     Title,
     Statusline,
     Theme,
+    Themes,
     #[strum(to_string = "pets", serialize = "pet")]
     Pets,
     Mcp,
@@ -87,6 +91,9 @@ impl SlashCommand {
             SlashCommand::Init => "create an AGENTS.md file with instructions for Codex",
             SlashCommand::Compact => "summarize conversation to prevent hitting the context limit",
             SlashCommand::Review => "review my current changes and find issues",
+            SlashCommand::Queue => "view and manage queued follow-up prompts",
+            SlashCommand::Recap => "show a local summary of this session",
+            SlashCommand::Processes => "view and manage background processes",
             SlashCommand::Rename => "rename the current thread",
             SlashCommand::Resume => "resume a saved chat",
             SlashCommand::Archive => "archive this session and exit",
@@ -108,8 +115,9 @@ impl SlashCommand {
             SlashCommand::Title => "configure which items appear in the terminal title",
             SlashCommand::Statusline => "configure which items appear in the status line",
             SlashCommand::Theme => "choose a syntax highlighting theme",
+            SlashCommand::Themes => "manage semantic UI themes",
             SlashCommand::Pets => "choose or hide the terminal pet",
-            SlashCommand::Ps => "list background terminals",
+            SlashCommand::Ps => "view and manage background processes",
             SlashCommand::Stop => "stop all background terminals",
             SlashCommand::MemoryDrop => "DO NOT USE",
             SlashCommand::MemoryUpdate => "DO NOT USE",
@@ -163,6 +171,7 @@ impl SlashCommand {
                 | SlashCommand::Raw
                 | SlashCommand::Usage
                 | SlashCommand::Pets
+                | SlashCommand::Themes
                 | SlashCommand::Side
                 | SlashCommand::Btw
                 | SlashCommand::Resume
@@ -177,10 +186,14 @@ impl SlashCommand {
             SlashCommand::Copy
                 | SlashCommand::Raw
                 | SlashCommand::Diff
+                | SlashCommand::Recap
                 | SlashCommand::Mention
                 | SlashCommand::Status
                 | SlashCommand::Usage
                 | SlashCommand::Ide
+                | SlashCommand::Processes
+                | SlashCommand::Ps
+                | SlashCommand::Themes
         )
     }
 
@@ -207,6 +220,9 @@ impl SlashCommand {
             | SlashCommand::MemoryDrop
             | SlashCommand::MemoryUpdate => false,
             SlashCommand::Diff
+            | SlashCommand::Queue
+            | SlashCommand::Recap
+            | SlashCommand::Processes
             | SlashCommand::Resume
             | SlashCommand::Model
             | SlashCommand::Personality
@@ -240,6 +256,7 @@ impl SlashCommand {
             SlashCommand::TestApproval => true,
             SlashCommand::Agent | SlashCommand::MultiAgents => true,
             SlashCommand::Theme | SlashCommand::Pets => false,
+            SlashCommand::Themes => true,
         }
     }
 

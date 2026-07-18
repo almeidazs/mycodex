@@ -359,6 +359,7 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
                 | SlashCommand::Copy
                 | SlashCommand::Raw
                 | SlashCommand::Diff
+                | SlashCommand::Recap
                 | SlashCommand::Mention
                 | SlashCommand::Skills
                 | SlashCommand::Import
@@ -371,6 +372,7 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
                 | SlashCommand::Statusline
                 | SlashCommand::Theme
                 | SlashCommand::Pets
+                | SlashCommand::Processes
                 | SlashCommand::Ps
                 | SlashCommand::Stop
                 | SlashCommand::MemoryDrop
@@ -3249,6 +3251,10 @@ impl ChatComposer {
         } else {
             self.footer.mode = reset_mode_after_activity(self.footer.mode);
         }
+        if self.try_complete_themes_subcommand(key_event) {
+            return (InputResult::None, true);
+        }
+
         if self.queue_keys.is_pressed(key_event)
             && (self.is_task_running || self.queue_submissions || !self.is_bang_shell_command())
         {
@@ -3305,6 +3311,55 @@ impl ChatComposer {
         }
 
         self.handle_input_basic(key_event)
+    }
+
+    fn try_complete_themes_subcommand(&mut self, key_event: KeyEvent) -> bool {
+        if !matches!(
+            key_event,
+            KeyEvent {
+                code: KeyCode::Tab,
+                modifiers: KeyModifiers::NONE,
+                kind: KeyEventKind::Press | KeyEventKind::Repeat,
+                ..
+            }
+        ) {
+            return false;
+        }
+        let text = self.current_text();
+        let Some(rest) = text.strip_prefix("/themes ") else {
+            return false;
+        };
+        if rest.contains(char::is_whitespace) {
+            return false;
+        }
+        const SUBCOMMANDS: &[&str] = &[
+            "list", "current", "use", "preview", "validate", "create", "reset",
+        ];
+        let matches = SUBCOMMANDS
+            .iter()
+            .filter(|command| command.starts_with(rest))
+            .copied()
+            .collect::<Vec<_>>();
+        let Some(completion) = matches.first().copied() else {
+            return false;
+        };
+        if matches.len() > 1 && !rest.is_empty() {
+            let common_prefix = common_prefix(&matches);
+            if common_prefix.len() <= rest.len() {
+                return false;
+            }
+            self.draft
+                .textarea
+                .replace_range("/themes ".len()..text.len(), &common_prefix);
+        } else {
+            self.draft
+                .textarea
+                .replace_range("/themes ".len()..text.len(), &format!("{completion} "));
+        }
+        self.draft
+            .textarea
+            .set_cursor(self.draft.textarea.text().len());
+        true
     }
 
     fn is_bang_shell_command(&self) -> bool {
@@ -4144,6 +4199,19 @@ impl ChatComposer {
         self.footer.active_agent_label = active_agent_label;
         true
     }
+}
+
+fn common_prefix(values: &[&str]) -> String {
+    let Some(first) = values.first() else {
+        return String::new();
+    };
+    let mut end = first.len();
+    for value in &values[1..] {
+        while end > 0 && !value.starts_with(&first[..end]) {
+            end -= 1;
+        }
+    }
+    first[..end].to_string()
 }
 
 fn footer_insert_newline_key(

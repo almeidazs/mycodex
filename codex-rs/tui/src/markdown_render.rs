@@ -103,21 +103,23 @@ struct MarkdownStyles {
 
 impl Default for MarkdownStyles {
     fn default() -> Self {
+        let theme = crate::theme::current();
+        let markdown = &theme.markdown;
         Self {
-            h1: Style::new().bold().underlined(),
-            h2: Style::new().bold(),
-            h3: Style::new().bold().italic(),
-            h4: Style::new().italic(),
-            h5: Style::new().italic(),
-            h6: Style::new().italic(),
-            code: Style::new().cyan(),
-            emphasis: Style::new().italic(),
-            strong: Style::new().bold(),
-            strikethrough: Style::new().crossed_out(),
-            ordered_list_marker: Style::new().light_blue(),
-            unordered_list_marker: Style::new(),
-            link: Style::new().cyan().underlined(),
-            blockquote: Style::new().green(),
+            h1: markdown.heading.underlined(),
+            h2: markdown.heading,
+            h3: markdown.heading.italic(),
+            h4: markdown.italic,
+            h5: markdown.italic,
+            h6: markdown.italic,
+            code: markdown.inline_code,
+            emphasis: markdown.italic,
+            strong: markdown.bold,
+            strikethrough: markdown.bold.crossed_out(),
+            ordered_list_marker: markdown.list_marker,
+            unordered_list_marker: markdown.list_marker,
+            link: markdown.link,
+            blockquote: markdown.quote,
         }
     }
 }
