@@ -1,71 +1,162 @@
-<p align="center"><strong>Codex CLI</strong> is a coding agent from OpenAI that runs locally on your computer.
+<h1 align="center">MyCodex</h1>
+
 <p align="center">
-  <img src="https://github.com/openai/codex/blob/main/.github/codex-cli-splash.png" alt="Codex CLI splash" width="80%" />
+  An opinionated Codex fork focused on a better terminal workflow, stronger session ergonomics, and quality-of-life features for people who live inside the TUI.
 </p>
-</br>
-If you want Codex in your code editor (VS Code, Cursor, Windsurf), <a href="https://developers.openai.com/codex/ide">install in your IDE.</a>
-</br>If you want the desktop app experience, run <code>codex app</code> or visit <a href="https://chatgpt.com/codex?app-landing-page=true">the Codex App page</a>.
-</br>If you are looking for the <em>cloud-based agent</em> from OpenAI, <strong>Codex Web</strong>, go to <a href="https://chatgpt.com/codex">chatgpt.com/codex</a>.</p>
+
+<p align="center">
+  <img src="./.github/codex-cli-splash.png" alt="MyCodex splash" width="80%" />
+</p>
+
+<p align="center">
+  Forked from <a href="https://github.com/openai/codex">openai/codex</a>.
+  This repository keeps the upstream foundation, then layers custom UX and workflow improvements on top.
+</p>
 
 ---
 
-## Quickstart
+## Quick Start
 
-### Installing and running Codex CLI
+Choose one of these paths:
 
-Run the following on Mac or Linux to install Codex CLI:
+- Build from source:
+
+  ```shell
+  cd codex-rs
+  cargo run --bin codex
+  ```
+
+- Run through the repo `justfile`:
+
+  ```shell
+  cd codex-rs
+  just codex
+  ```
+
+If you prefer packaged upstream installs, the original Codex CLI options are still documented in the
+[OpenAI Codex docs](https://developers.openai.com/codex).
+
+## What MyCodex Changes
+
+MyCodex is not a rewrite. It is a maintained fork that keeps pace with upstream Codex while improving the day-to-day terminal experience for local agent work.
+
+The main areas of focus in this fork are:
+
+- Better visibility into what the agent is doing.
+- Better recovery when work is interrupted by limits or account changes.
+- Better local tooling for long-running interactive sessions.
+- Better customization of the TUI surface.
+
+## Features
+
+> For the latest fork-specific work, check the commit history and repository releases.
+
+### Status Line and Session Visibility
+
+MyCodex expands the TUI status surfaces so important session context stays visible while you work:
+
+- configurable status line items
+- optional theme-derived status line colors
+- live session timer
+- stronger workspace and activity visibility
+
+This makes it easier to understand the current model, workspace, runtime state, and session duration at a glance.
+
+### Prompt Queue Management
+
+MyCodex adds stronger control over queued follow-up prompts when a turn cannot continue immediately:
+
+- inspect and manage queued prompts with `/queue`
+- pause queued auto-send behavior
+- resume later without losing follow-up work
+- keep working even when usage limits interrupt the current flow
+
+This is especially useful when you are iterating quickly and do not want rate limits or temporary pauses to break momentum.
+
+### Session Recap
+
+MyCodex adds a local session recap flow so the TUI can summarize what happened during a working session:
+
+- review decisions, completed work, problems, and changed files
+- trigger a recap manually with `/recap`
+- benefit from automatic recap snapshots during longer sessions
+
+This gives you a fast local summary without depending on external note-taking.
+
+### Background Process Management
+
+Long-running terminal work is easier to manage in this fork:
+
+- inspect managed background processes with `/processes` or `/ps`
+- stop background terminals explicitly when needed
+- surface process state inside the TUI instead of treating background work as invisible
+
+### Theme and UI Customization
+
+MyCodex adds more control over how the TUI looks and feels:
+
+- semantic UI theme support
+- syntax theme selection
+- configurable status line composition
+- terminal title customization
+
+The goal is simple: make the interface easier to scan during long sessions without turning it into noise.
+
+### Safer Account and Recovery Flow
+
+This fork includes workflow improvements around auth changes and interrupted sessions:
+
+- safer `auth.json` reload behavior
+- better account-switch pickup boundaries
+- automatic recovery-oriented resumption after usage-limit interruptions
+
+These changes are aimed at reducing restarts and manual recovery when you switch accounts or hit plan limits mid-session.
+
+## Upstream Strategy
+
+This fork is maintained by re-applying MyCodex changes onto fresh upstream Codex updates instead of carrying a long-lived merge history forever.
+
+That keeps the codebase closer to current upstream behavior while preserving fork-specific improvements.
+
+## Repository Layout
+
+- `codex-rs/`: Rust implementation and TUI
+- `codex-cli/`: CLI packaging entrypoint
+- `sdk/`: language SDKs
+- `docs/`: repository and contributor documentation
+- `tools/`: maintenance and lint tooling
+
+## Development
+
+Install dependencies and run from source:
 
 ```shell
-curl -fsSL https://chatgpt.com/codex/install.sh | sh
+cd codex-rs
+just install
+just codex
 ```
 
-Run the following on Windows to install Codex CLI:
+Useful commands:
 
 ```shell
-powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"
+cd codex-rs
+just fmt
+just test -p codex-tui
+just test -p codex-core
 ```
 
-Codex CLI can also be installed via the following package managers:
+## Documentation
 
-```shell
-# Install using npm
-npm install -g @openai/codex
-```
+- [OpenAI Codex documentation](https://developers.openai.com/codex)
+- [Repository contributing guide](./docs/contributing.md)
+- [Install and build notes](./docs/install.md)
+- [codex-rs README](./codex-rs/README.md)
 
-```shell
-# Install using Homebrew
-brew install --cask codex
-```
+## Credits
 
-Then simply run `codex` to get started.
+- Upstream project: [openai/codex](https://github.com/openai/codex)
+- Inspiration for README positioning and feature-first presentation: [Loongphy/codext](https://github.com/Loongphy/codext)
 
-<details>
-<summary>You can also go to the <a href="https://github.com/openai/codex/releases/latest">latest GitHub Release</a> and download the appropriate binary for your platform.</summary>
+## License
 
-Each GitHub Release contains many executables, but in practice, you likely want one of these:
-
-- macOS
-  - Apple Silicon/arm64: `codex-aarch64-apple-darwin.tar.gz`
-  - x86_64 (older Mac hardware): `codex-x86_64-apple-darwin.tar.gz`
-- Linux
-  - x86_64: `codex-x86_64-unknown-linux-musl.tar.gz`
-  - arm64: `codex-aarch64-unknown-linux-musl.tar.gz`
-
-Each archive contains a single entry with the platform baked into the name (e.g., `codex-x86_64-unknown-linux-musl`), so you likely want to rename it to `codex` after extracting it.
-
-</details>
-
-### Using Codex with your ChatGPT plan
-
-Run `codex` and select **Sign in with ChatGPT**. We recommend signing into your ChatGPT account to use Codex as part of your Plus, Pro, Business, Edu, or Enterprise plan. [Learn more about what's included in your ChatGPT plan](https://help.openai.com/en/articles/11369540-codex-in-chatgpt).
-
-You can also use Codex with an API key, but this requires [additional setup](https://developers.openai.com/codex/auth#sign-in-with-an-api-key).
-
-## Docs
-
-- [**Codex Documentation**](https://developers.openai.com/codex)
-- [**Contributing**](./docs/contributing.md)
-- [**Installing & building**](./docs/install.md)
-- [**Open source fund**](./docs/open-source-fund.md)
-
-This repository is licensed under the [Apache-2.0 License](LICENSE).
+This repository is licensed under the [Apache-2.0 License](./LICENSE).
