@@ -3332,6 +3332,11 @@
           "description": "Syntax highlighting theme name (kebab-case).\n\nWhen set, overrides automatic light/dark theme detection. Use `/theme` in the TUI or see `$CODEX_HOME/themes` for custom themes.",
           "type": "string"
         },
+        "ui_theme": {
+          "default": null,
+          "description": "Semantic UI theme id.\n\nWhen set, controls TUI component colors and the paired syntax theme. Use `/themes` in the TUI to select or manage UI themes.",
+          "type": "string"
+        },
         "vim_mode_default": {
           "default": false,
           "description": "Start the composer in Vim mode (`Normal`) by default. Defaults to `false`.",

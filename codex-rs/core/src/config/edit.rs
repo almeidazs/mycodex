@@ -90,6 +90,14 @@ pub fn syntax_theme_edit(name: &str) -> ConfigEdit {
     }
 }
 
+/// Produces a config edit that sets `[tui].ui_theme = "<name>"`.
+pub fn ui_theme_edit(name: &str) -> ConfigEdit {
+    ConfigEdit::SetPath {
+        segments: vec!["tui".to_string(), "ui_theme".to_string()],
+        value: value(name.to_string()),
+    }
+}
+
 /// Produces a config edit that sets [tui].pet = "<name>".
 pub fn tui_pet_edit(name: &str) -> ConfigEdit {
     ConfigEdit::SetPath {

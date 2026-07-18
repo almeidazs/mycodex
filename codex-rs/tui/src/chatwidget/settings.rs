@@ -252,6 +252,11 @@ impl ChatWidget {
         self.config.tui_theme = theme;
     }
 
+    /// Set the UI theme override in the widget's config copy.
+    pub(crate) fn set_tui_ui_theme(&mut self, theme: Option<String>) {
+        self.config.tui_ui_theme = theme;
+    }
+
     /// Set the model in the widget's config copy and stored collaboration mode.
     pub(crate) fn set_model(&mut self, model: &str) {
         self.current_collaboration_mode = self.current_collaboration_mode.with_updates(

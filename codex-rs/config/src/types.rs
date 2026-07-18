@@ -744,6 +744,13 @@ pub struct Tui {
     #[serde(default)]
     pub theme: Option<String>,
 
+    /// Semantic UI theme id.
+    ///
+    /// When set, controls TUI component colors and the paired syntax theme.
+    /// Use `/themes` in the TUI to select or manage UI themes.
+    #[serde(default)]
+    pub ui_theme: Option<String>,
+
     /// Pet id to preselect in the terminal pet picker.
     ///
     /// Custom pet ids resolve against CODEX_HOME/pets/<pet-id>/pet.json.

@@ -943,6 +943,7 @@ fn config_toml_deserializes_model_availability_nux() {
             status_line_use_colors: true,
             terminal_title: None,
             theme: None,
+            ui_theme: None,
             pet: None,
             pet_anchor: TuiPetAnchor::Composer,
             session_picker_view: None,
@@ -3663,12 +3664,50 @@ theme = "dracula"
 }
 
 #[test]
+fn tui_ui_theme_deserializes_from_toml() {
+    let cfg = r#"
+[tui]
+ui_theme = "claude-dark"
+"#;
+    let parsed = toml::from_str::<ConfigToml>(cfg).expect("TOML deserialization should succeed");
+    assert_eq!(
+        parsed.tui.as_ref().and_then(|t| t.ui_theme.as_deref()),
+        Some("claude-dark"),
+    );
+}
+
+#[tokio::test]
+async fn tui_ui_theme_loads_into_effective_config() -> std::io::Result<()> {
+    let cfg: ConfigToml = toml::from_str(
+        r#"
+[tui]
+ui_theme = "claude-dark"
+"#,
+    )
+    .expect("TOML deserialization should succeed");
+
+    let config = Config::load_from_base_config_with_overrides(
+        cfg,
+        ConfigOverrides::default(),
+        tempdir().expect("tempdir").abs(),
+    )
+    .await?;
+
+    assert_eq!(config.tui_ui_theme.as_deref(), Some("claude-dark"));
+    Ok(())
+}
+
+#[test]
 fn tui_theme_defaults_to_none() {
     let cfg = r#"
 [tui]
 "#;
     let parsed = toml::from_str::<ConfigToml>(cfg).expect("TOML deserialization should succeed");
     assert_eq!(parsed.tui.as_ref().and_then(|t| t.theme.as_deref()), None);
+    assert_eq!(
+        parsed.tui.as_ref().and_then(|t| t.ui_theme.as_deref()),
+        None
+    );
 }
 
 #[test]
@@ -3782,6 +3821,7 @@ fn tui_config_missing_notifications_field_defaults_to_enabled() {
             status_line_use_colors: true,
             terminal_title: None,
             theme: None,
+            ui_theme: None,
             pet: None,
             pet_anchor: TuiPetAnchor::Composer,
             session_picker_view: None,

@@ -860,6 +860,11 @@ impl App {
         self.chat_widget.set_tui_theme(Some(name));
     }
 
+    pub(super) fn sync_tui_ui_theme_selection(&mut self, id: String) {
+        self.config.tui_ui_theme = Some(id.clone());
+        self.chat_widget.set_tui_ui_theme(Some(id));
+    }
+
     #[cfg(test)]
     pub(super) fn sync_tui_pet_selection(&mut self, pet: String) {
         self.config.tui_pet = Some(pet.clone());
@@ -1709,6 +1714,19 @@ terminal_resize_reflow_max_rows = 9000
         assert_eq!(
             app.chat_widget.config_ref().tui_theme.as_deref(),
             Some("dracula")
+        );
+    }
+
+    #[tokio::test]
+    async fn sync_tui_ui_theme_selection_updates_chat_widget_config_copy() {
+        let mut app = make_test_app().await;
+
+        app.sync_tui_ui_theme_selection("claude-dark".to_string());
+
+        assert_eq!(app.config.tui_ui_theme.as_deref(), Some("claude-dark"));
+        assert_eq!(
+            app.chat_widget.config_ref().tui_ui_theme.as_deref(),
+            Some("claude-dark")
         );
     }
 
