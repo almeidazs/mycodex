@@ -1027,6 +1027,14 @@ pub struct ThreadBackgroundTerminalsListParams {
     pub limit: Option<u32>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export_to = "v2/")]
+pub enum ThreadBackgroundTerminalStatus {
+    Running,
+    Exited,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export_to = "v2/")]
@@ -1035,6 +1043,12 @@ pub struct ThreadBackgroundTerminal {
     pub process_id: String,
     pub command: String,
     pub cwd: AbsolutePathBuf,
+    pub status: ThreadBackgroundTerminalStatus,
+    pub started_at: i64,
+    pub ended_at: Option<i64>,
+    pub exit_code: Option<i32>,
+    pub recent_output: String,
+    pub detected_urls: Vec<String>,
     pub os_pid: Option<u32>,
     pub cpu_percent: Option<f64>,
     pub rss_kb: Option<u64>,

@@ -39,6 +39,7 @@ mod thread_list_cwd_filter_tests {
 mod background_terminal_pagination_tests {
     use super::super::paginate_background_terminals;
     use codex_app_server_protocol::ThreadBackgroundTerminal;
+    use codex_app_server_protocol::ThreadBackgroundTerminalStatus;
     use codex_utils_absolute_path::AbsolutePathBuf;
     use pretty_assertions::assert_eq;
 
@@ -50,6 +51,12 @@ mod background_terminal_pagination_tests {
             process_id: process_id.to_string(),
             command: format!("command-{process_id}"),
             cwd: AbsolutePathBuf::from_absolute_path(cwd).expect("absolute cwd"),
+            status: ThreadBackgroundTerminalStatus::Running,
+            started_at: 1,
+            ended_at: None,
+            exit_code: None,
+            recent_output: String::new(),
+            detected_urls: Vec::new(),
             os_pid: None,
             cpu_percent: None,
             rss_kb: None,

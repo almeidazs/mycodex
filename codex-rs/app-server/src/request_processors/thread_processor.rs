@@ -1892,11 +1892,25 @@ impl ThreadRequestProcessor {
                 let cwd = terminal.cwd.to_abs_path().map_err(|err| {
                     internal_error(format!("background terminal has invalid cwd: {err}"))
                 })?;
+                let status = match terminal.status {
+                    codex_core::BackgroundTerminalStatus::Running => {
+                        ThreadBackgroundTerminalStatus::Running
+                    }
+                    codex_core::BackgroundTerminalStatus::Exited => {
+                        ThreadBackgroundTerminalStatus::Exited
+                    }
+                };
                 Ok(ThreadBackgroundTerminal {
                     item_id: terminal.item_id,
                     process_id: terminal.process_id,
                     command: terminal.command,
                     cwd,
+                    status,
+                    started_at: terminal.started_at,
+                    ended_at: terminal.ended_at,
+                    exit_code: terminal.exit_code,
+                    recent_output: terminal.recent_output,
+                    detected_urls: terminal.detected_urls,
                     os_pid: None,
                     cpu_percent: None,
                     rss_kb: None,

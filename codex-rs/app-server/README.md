@@ -1000,7 +1000,7 @@ Use `thread/backgroundTerminals/clean` to terminate all running background termi
 
 ### Example: List and terminate background terminals
 
-Use `thread/backgroundTerminals/list` to inspect running background terminals associated with a loaded thread. The `backgroundTerminals` segment intentionally follows the existing `thread/backgroundTerminals/clean` method. The returned `processId` is the app-server process id; host OS metadata is nullable. The request accepts the standard `cursor` and `limit` pagination fields. When `nextCursor` is non-null, pass it as `cursor` to fetch the next page.
+Use `thread/backgroundTerminals/list` to inspect managed background terminals associated with a loaded thread. The `backgroundTerminals` segment intentionally follows the existing `thread/backgroundTerminals/clean` method. The returned `processId` is the app-server process id; host OS metadata is nullable. Running terminals and recently exited terminals can be returned; exited entries include `status: "exited"` and may include `exitCode`. The request accepts the standard `cursor` and `limit` pagination fields. When `nextCursor` is non-null, pass it as `cursor` to fetch the next page.
 
 ```json
 { "method": "thread/backgroundTerminals/list", "id": 36, "params": { "threadId": "thr_123" } }
@@ -1010,6 +1010,12 @@ Use `thread/backgroundTerminals/list` to inspect running background terminals as
         "processId": "42",
         "command": "python3 -m http.server",
         "cwd": "/workspace",
+        "status": "running",
+        "startedAt": 1784387000,
+        "endedAt": null,
+        "exitCode": null,
+        "recentOutput": "Serving HTTP on :: port 8000",
+        "detectedUrls": ["http://localhost:8000"],
         "osPid": null,
         "cpuPercent": null,
         "rssKb": null
