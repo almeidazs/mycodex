@@ -26,7 +26,9 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Weak;
+use std::time::SystemTime;
 
+use self::head_tail_buffer::HeadTailBuffer;
 use codex_network_proxy::NetworkProxy;
 use codex_protocol::models::AdditionalPermissionProfile;
 use codex_tools::UnifiedExecShellMode;
@@ -163,6 +165,9 @@ struct ProcessEntry {
     network_approval: Option<DeferredNetworkApproval>,
     session: Weak<Session>,
     last_used: tokio::time::Instant,
+    started_wall_time: SystemTime,
+    ended_wall_time: Option<SystemTime>,
+    transcript: Arc<tokio::sync::Mutex<HeadTailBuffer>>,
 }
 
 pub(crate) fn clamp_yield_time(yield_time_ms: u64) -> u64 {

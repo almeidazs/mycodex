@@ -26,6 +26,7 @@ mod compact_remote_v2;
 mod compact_token_budget;
 mod config_lock;
 pub use codex_thread::BackgroundTerminalInfo;
+pub use codex_thread::BackgroundTerminalStatus;
 pub use codex_thread::CodexThread;
 pub use codex_thread::CodexThreadSettingsOverrides;
 pub use codex_thread::ThreadConfigSnapshot;

@@ -174,12 +174,24 @@ struct OutOfBandElicitations {
     registration: Option<ElicitationRegistration>,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum BackgroundTerminalStatus {
+    Running,
+    Exited,
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct BackgroundTerminalInfo {
     pub item_id: String,
     pub process_id: String,
     pub command: String,
     pub cwd: PathUri,
+    pub status: BackgroundTerminalStatus,
+    pub started_at: i64,
+    pub ended_at: Option<i64>,
+    pub exit_code: Option<i32>,
+    pub recent_output: String,
+    pub detected_urls: Vec<String>,
 }
 
 /// Conduit for the bidirectional stream of messages that compose a thread

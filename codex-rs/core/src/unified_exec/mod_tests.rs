@@ -1,6 +1,6 @@
 use super::head_tail_buffer::HeadTailBuffer;
 use super::*;
-use crate::codex_thread::BackgroundTerminalInfo;
+use crate::codex_thread::BackgroundTerminalStatus;
 use crate::environment_selection::TurnEnvironmentState;
 use crate::exec::ExecCapturePolicy;
 use crate::exec::ExecExpiration;
@@ -32,6 +32,7 @@ use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::SystemTime;
 use tokio::sync::Notify;
 use tokio::sync::watch;
 use tokio::time::Duration;
@@ -139,6 +140,9 @@ async fn exec_command_with_tty(
             network_approval: None,
             session: Arc::downgrade(session),
             last_used: started_at,
+            started_wall_time: SystemTime::now(),
+            ended_wall_time: None,
+            transcript: Arc::new(tokio::sync::Mutex::new(HeadTailBuffer::default())),
         };
         manager
             .process_store
@@ -366,15 +370,17 @@ async fn unified_exec_persists_across_requests() -> anyhow::Result<()> {
     )
     .await?;
     let process_id = open_shell.process_id.expect("expected process_id");
-    assert_eq!(
-        session.list_background_terminals().await,
-        vec![BackgroundTerminalInfo {
-            item_id: "call".to_string(),
-            process_id: process_id.to_string(),
-            command: "bash -i".to_string(),
-            cwd: cwd.into(),
-        }]
-    );
+    let terminals = session.list_background_terminals().await;
+    assert_eq!(terminals.len(), 1);
+    let terminal = &terminals[0];
+    assert_eq!(terminal.item_id, "call");
+    assert_eq!(terminal.process_id, process_id.to_string());
+    assert_eq!(terminal.command, "bash -i");
+    assert_eq!(terminal.cwd, cwd.into());
+    assert_eq!(terminal.status, BackgroundTerminalStatus::Running);
+    assert!(terminal.started_at > 0);
+    assert_eq!(terminal.ended_at, None);
+    assert_eq!(terminal.exit_code, None);
 
     write_stdin(
         &session,
@@ -621,6 +627,9 @@ async fn terminating_initial_exec_command_rechecks_initial_response_state() -> a
             network_approval: None,
             session: Arc::downgrade(&session),
             last_used: Instant::now(),
+            started_wall_time: SystemTime::now(),
+            ended_wall_time: None,
+            transcript: Arc::new(tokio::sync::Mutex::new(HeadTailBuffer::default())),
         },
     );
 
@@ -694,6 +703,9 @@ async fn terminating_during_stdin_poll_returns_exited_response() -> anyhow::Resu
             network_approval: None,
             session: Arc::downgrade(&session),
             last_used,
+            started_wall_time: SystemTime::now(),
+            ended_wall_time: None,
+            transcript: Arc::new(tokio::sync::Mutex::new(HeadTailBuffer::default())),
         },
     );
 

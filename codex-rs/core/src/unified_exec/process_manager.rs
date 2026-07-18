@@ -6,6 +6,8 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 use tokio::sync::Notify;
 use tokio::sync::watch;
 use tokio::time::Duration;
@@ -14,6 +16,7 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::codex_thread::BackgroundTerminalInfo;
+use crate::codex_thread::BackgroundTerminalStatus;
 use crate::exec_env::CODEX_PERMISSION_PROFILE_ENV_VAR;
 use crate::exec_env::CODEX_THREAD_ID_ENV_VAR;
 use crate::exec_env::create_env;
@@ -83,6 +86,7 @@ const NETWORK_ACCESS_DENIED_MESSAGE: &str =
     "Network access was denied by the Codex sandbox network proxy.";
 const LATE_NETWORK_DENIAL_GRACE_PERIOD: Duration = Duration::from_millis(100);
 const INTERRUPT: &str = "\u{3}";
+const EXITED_PROCESS_RETENTION: Duration = Duration::from_secs(/*secs*/ 300);
 
 /// Test-only override for deterministic unified exec process IDs.
 ///
@@ -100,6 +104,28 @@ fn deterministic_process_ids_forced_for_tests() -> bool {
 
 fn should_use_deterministic_process_ids() -> bool {
     cfg!(test) || deterministic_process_ids_forced_for_tests()
+}
+
+fn unix_seconds(time: SystemTime) -> i64 {
+    time.duration_since(UNIX_EPOCH)
+        .map(|duration| i64::try_from(duration.as_secs()).unwrap_or(i64::MAX))
+        .unwrap_or(0)
+}
+
+fn detected_local_urls(output: &str) -> Vec<String> {
+    let mut urls = Vec::new();
+    for token in output.split_whitespace() {
+        let candidate =
+            token.trim_matches(|ch: char| matches!(ch, ',' | '.' | ')' | ']' | '}' | '\'' | '"'));
+        let local_url = candidate.starts_with("http://localhost:")
+            || candidate.starts_with("https://localhost:")
+            || candidate.starts_with("http://127.0.0.1:")
+            || candidate.starts_with("https://127.0.0.1:");
+        if local_url && !urls.iter().any(|url| url == candidate) {
+            urls.push(candidate.to_string());
+        }
+    }
+    urls
 }
 
 fn apply_unified_exec_env(mut env: HashMap<String, String>) -> HashMap<String, String> {
@@ -925,6 +951,9 @@ impl UnifiedExecProcessManager {
             network_approval,
             session: Arc::downgrade(&context.session),
             last_used: started_at,
+            started_wall_time: SystemTime::now(),
+            ended_wall_time: None,
+            transcript: Arc::clone(&transcript),
         };
         let pruned_entry = {
             let mut store = self.process_store.lock().await;
@@ -1447,22 +1476,92 @@ impl UnifiedExecProcessManager {
     }
 
     pub(crate) async fn list_processes(&self) -> Vec<BackgroundTerminalInfo> {
-        let store = self.process_store.lock().await;
-        let mut entries = store
-            .processes
-            .values()
-            .filter(|entry| !entry.process.has_exited())
-            .collect::<Vec<_>>();
-        entries.sort_by_key(|entry| entry.process_id);
-        entries
-            .into_iter()
-            .map(|entry| BackgroundTerminalInfo {
-                item_id: entry.call_id.clone(),
-                process_id: entry.process_id.to_string(),
-                command: entry.hook_command.clone(),
-                cwd: entry.cwd.clone(),
-            })
-            .collect()
+        struct ProcessSnapshotSource {
+            item_id: String,
+            process_id: String,
+            process_id_sort_key: i32,
+            command: String,
+            cwd: PathUri,
+            status: BackgroundTerminalStatus,
+            started_at: i64,
+            ended_at: Option<i64>,
+            exit_code: Option<i32>,
+            transcript: Arc<tokio::sync::Mutex<HeadTailBuffer>>,
+        }
+
+        let stale_entries = {
+            let mut store = self.process_store.lock().await;
+            let now = Instant::now();
+            let mut stale_process_ids = Vec::new();
+            for entry in store.processes.values_mut() {
+                if entry.process.has_exited() && entry.ended_wall_time.is_none() {
+                    entry.ended_wall_time = Some(SystemTime::now());
+                    entry.last_used = now;
+                }
+                if entry.ended_wall_time.is_some_and(|_| {
+                    now.saturating_duration_since(entry.last_used) > EXITED_PROCESS_RETENTION
+                }) {
+                    stale_process_ids.push(entry.process_id);
+                }
+            }
+            stale_process_ids
+                .into_iter()
+                .filter_map(|process_id| store.remove(process_id))
+                .collect::<Vec<_>>()
+        };
+        for entry in stale_entries {
+            unregister_network_approval_for_entry(&entry).await;
+        }
+
+        let mut sources = {
+            let store = self.process_store.lock().await;
+            store
+                .processes
+                .values()
+                .map(|entry| {
+                    let ended_at = entry.ended_wall_time.map(unix_seconds);
+                    ProcessSnapshotSource {
+                        item_id: entry.call_id.clone(),
+                        process_id: entry.process_id.to_string(),
+                        process_id_sort_key: entry.process_id,
+                        command: entry.hook_command.clone(),
+                        cwd: entry.cwd.clone(),
+                        status: if entry.process.has_exited() {
+                            BackgroundTerminalStatus::Exited
+                        } else {
+                            BackgroundTerminalStatus::Running
+                        },
+                        started_at: unix_seconds(entry.started_wall_time),
+                        ended_at,
+                        exit_code: entry.process.exit_code(),
+                        transcript: Arc::clone(&entry.transcript),
+                    }
+                })
+                .collect::<Vec<_>>()
+        };
+        sources.sort_by_key(|entry| entry.process_id_sort_key);
+
+        let mut processes = Vec::with_capacity(sources.len());
+        for source in sources {
+            let recent_output = {
+                let transcript = source.transcript.lock().await;
+                String::from_utf8_lossy(&transcript.to_bytes_with_omission_marker()).to_string()
+            };
+            let detected_urls = detected_local_urls(&recent_output);
+            processes.push(BackgroundTerminalInfo {
+                item_id: source.item_id,
+                process_id: source.process_id,
+                command: source.command,
+                cwd: source.cwd,
+                status: source.status,
+                started_at: source.started_at,
+                ended_at: source.ended_at,
+                exit_code: source.exit_code,
+                recent_output,
+                detected_urls,
+            });
+        }
+        processes
     }
 
     pub(crate) async fn terminate_process(&self, process_id: i32) -> bool {
