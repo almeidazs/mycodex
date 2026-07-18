@@ -63,6 +63,7 @@ pub(super) struct QueuedUserMessage {
     pub(super) user_message: UserMessage,
     pub(super) action: QueuedInputAction,
     pub(super) pending_pastes: Vec<(String, String)>,
+    pub(super) condition: QueuedMessageCondition,
 }
 
 impl QueuedUserMessage {
@@ -71,6 +72,7 @@ impl QueuedUserMessage {
             user_message,
             action,
             pending_pastes: Vec::new(),
+            condition: QueuedMessageCondition::Always,
         }
     }
 
@@ -91,6 +93,47 @@ impl Deref for QueuedUserMessage {
     fn deref(&self) -> &Self::Target {
         &self.user_message
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(super) enum QueuedMessageCondition {
+    #[default]
+    Always,
+    OnSuccess,
+    OnFailure,
+}
+
+impl QueuedMessageCondition {
+    pub(super) fn label(self) -> &'static str {
+        match self {
+            QueuedMessageCondition::Always => "always",
+            QueuedMessageCondition::OnSuccess => "on_success",
+            QueuedMessageCondition::OnFailure => "on_failure",
+        }
+    }
+
+    pub(super) fn next(self) -> Self {
+        match self {
+            QueuedMessageCondition::Always => QueuedMessageCondition::OnSuccess,
+            QueuedMessageCondition::OnSuccess => QueuedMessageCondition::OnFailure,
+            QueuedMessageCondition::OnFailure => QueuedMessageCondition::Always,
+        }
+    }
+
+    pub(super) fn is_eligible_after(self, outcome: QueueTurnOutcome) -> bool {
+        match (self, outcome) {
+            (QueuedMessageCondition::Always, _) => true,
+            (QueuedMessageCondition::OnSuccess, QueueTurnOutcome::Success) => true,
+            (QueuedMessageCondition::OnFailure, QueueTurnOutcome::Failure) => true,
+            (QueuedMessageCondition::OnSuccess | QueuedMessageCondition::OnFailure, _) => false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum QueueTurnOutcome {
+    Success,
+    Failure,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -133,6 +176,7 @@ pub(crate) struct ThreadInputState {
     pub(super) queued_user_message_history_records: VecDeque<UserMessageHistoryRecord>,
     pub(super) user_turn_pending_start: bool,
     pub(super) submit_pending_steers_after_interrupt: bool,
+    pub(super) user_queue_paused: bool,
     pub(super) current_collaboration_mode: CollaborationMode,
     pub(super) active_collaboration_mask: Option<CollaborationModeMask>,
     pub(super) task_running: bool,

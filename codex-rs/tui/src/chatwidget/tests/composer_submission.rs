@@ -1,5 +1,6 @@
 use super::*;
 use crate::app_event::ConnectorsSnapshot;
+use crate::app_event::QueueManagerAction;
 use codex_protocol::models::ManagedFileSystemPermissions;
 use codex_protocol::permissions::FileSystemAccessMode;
 use codex_protocol::permissions::FileSystemPath;
@@ -130,6 +131,7 @@ async fn parent_owned_thread_preserves_queued_input_before_draining() {
         user_message: UserMessage::from("keep this queued prompt"),
         action: QueuedInputAction::Plain,
         pending_pastes: vec![("[Image 1]".to_string(), "pasted contents".to_string())],
+        condition: QueuedMessageCondition::Always,
     };
     let history_record = UserMessageHistoryRecord::UserMessageText;
     chat.input_queue
@@ -148,6 +150,43 @@ async fn parent_owned_thread_preserves_queued_input_before_draining() {
     assert_eq!(
         chat.input_queue.queued_user_message_history_records,
         VecDeque::from([history_record])
+    );
+    assert_no_submit_op(&mut op_rx);
+}
+
+#[tokio::test]
+async fn queue_manager_send_now_while_running_preserves_queued_prompt() {
+    let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ Some("gpt-5")).await;
+    let first_message = QueuedUserMessage {
+        user_message: UserMessage::from("first"),
+        action: QueuedInputAction::Plain,
+        pending_pastes: Vec::new(),
+        condition: QueuedMessageCondition::OnFailure,
+    };
+    let second_message = QueuedUserMessage::from(UserMessage::from("second"));
+    chat.input_queue
+        .queued_user_messages
+        .push_back(first_message.clone());
+    chat.input_queue
+        .queued_user_messages
+        .push_back(second_message.clone());
+    chat.input_queue
+        .queued_user_message_history_records
+        .resize(2, UserMessageHistoryRecord::UserMessageText);
+    chat.bottom_pane.set_task_running(/*running*/ true);
+
+    chat.handle_queue_manager_action(QueueManagerAction::SendNow { index: 0 });
+
+    assert_eq!(
+        chat.input_queue.queued_user_messages,
+        VecDeque::from([first_message, second_message])
+    );
+    assert_eq!(
+        chat.input_queue.queued_user_message_history_records,
+        VecDeque::from([
+            UserMessageHistoryRecord::UserMessageText,
+            UserMessageHistoryRecord::UserMessageText,
+        ])
     );
     assert_no_submit_op(&mut op_rx);
 }
@@ -1285,6 +1324,7 @@ async fn restore_thread_input_state_applies_running_state_policy() {
         queued_user_message_history_records: VecDeque::from([queued_history.clone()]),
         user_turn_pending_start: true,
         submit_pending_steers_after_interrupt: true,
+        user_queue_paused: false,
         current_collaboration_mode: chat.current_collaboration_mode.clone(),
         active_collaboration_mask: chat.active_collaboration_mask.clone(),
         task_running: true,

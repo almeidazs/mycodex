@@ -30,21 +30,12 @@ impl ChatWidget {
         }
     }
 
-    pub(super) fn pop_next_queued_user_message(
+    pub(super) fn pop_next_queued_user_message_for(
         &mut self,
+        outcome: Option<QueueTurnOutcome>,
     ) -> Option<(QueuedUserMessage, UserMessageHistoryRecord)> {
         if self.input_queue.rejected_steers_queue.is_empty() {
-            self.input_queue
-                .queued_user_messages
-                .pop_front()
-                .map(|user_message| {
-                    let history_record = self
-                        .input_queue
-                        .queued_user_message_history_records
-                        .pop_front()
-                        .unwrap_or(UserMessageHistoryRecord::UserMessageText);
-                    (user_message, history_record)
-                })
+            self.input_queue.pop_next_queued_user_message_for(outcome)
         } else {
             let rejected_messages = self
                 .input_queue
@@ -301,7 +292,7 @@ impl ChatWidget {
         self.bottom_pane.set_composer_pending_pastes(pending_pastes);
     }
 
-    fn composer_state_from_user_message(
+    pub(super) fn composer_state_from_user_message(
         user_message: UserMessage,
         pending_pastes: Vec<(String, String)>,
     ) -> ThreadComposerState {
@@ -364,6 +355,7 @@ impl ChatWidget {
             submit_pending_steers_after_interrupt: self
                 .input_queue
                 .submit_pending_steers_after_interrupt,
+            user_queue_paused: self.input_queue.user_queue_paused,
             current_collaboration_mode: self.current_collaboration_mode.clone(),
             active_collaboration_mask: self.active_collaboration_mask.clone(),
             task_running: self.bottom_pane.is_task_running(),
@@ -391,6 +383,7 @@ impl ChatWidget {
                 preserve_in_flight_turn && input_state.user_turn_pending_start;
             self.input_queue.submit_pending_steers_after_interrupt =
                 preserve_in_flight_turn && input_state.submit_pending_steers_after_interrupt;
+            self.input_queue.user_queue_paused = input_state.user_queue_paused;
             self.update_collaboration_mode_indicator();
             self.refresh_model_dependent_surfaces();
             self.restore_composer_state(input_state.composer.unwrap_or_default());
@@ -464,6 +457,6 @@ impl ChatWidget {
     }
 
     pub(crate) fn set_queue_autosend_suppressed(&mut self, suppressed: bool) {
-        self.input_queue.suppress_queue_autosend = suppressed;
+        self.input_queue.set_autosend_suppressed(suppressed);
     }
 }

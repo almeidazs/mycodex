@@ -707,6 +707,8 @@ async fn unified_exec_wait_status_header_updates_on_late_command_display() {
         call_id: "call-1".to_string(),
         command_display: "sleep 5".to_string(),
         recent_chunks: Vec::new(),
+        detected_urls: Vec::new(),
+        ready_notified: false,
     });
 
     terminal_interaction(&mut chat, "call-1", "proc-1", "");

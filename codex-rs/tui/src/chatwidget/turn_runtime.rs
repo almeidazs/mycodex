@@ -201,7 +201,7 @@ impl ChatWidget {
             self.transcript.saw_plan_item_this_turn = false;
         }
         // If there is a queued user message, send exactly one now to begin the next turn.
-        let follow_up_started = self.maybe_send_next_queued_input();
+        let follow_up_started = self.maybe_send_next_queued_input_after(QueueTurnOutcome::Success);
         let active_goal_continuing = self
             .current_goal_status
             .as_ref()
@@ -350,7 +350,7 @@ impl ChatWidget {
 
         self.add_to_history(history_cell::new_warning_event(message));
         self.request_redraw();
-        self.maybe_send_next_queued_input();
+        self.maybe_send_next_queued_input_after(QueueTurnOutcome::Failure);
     }
 
     pub(super) fn on_error(&mut self, message: String) {
@@ -365,7 +365,7 @@ impl ChatWidget {
         self.request_redraw();
 
         // After an error ends the turn, try sending the next queued input.
-        self.maybe_send_next_queued_input();
+        self.maybe_send_next_queued_input_after(QueueTurnOutcome::Failure);
     }
 
     pub(super) fn on_cyber_policy_error(&mut self) {
@@ -375,7 +375,7 @@ impl ChatWidget {
         self.request_redraw();
 
         // After an error ends the turn, try sending the next queued input.
-        self.maybe_send_next_queued_input();
+        self.maybe_send_next_queued_input_after(QueueTurnOutcome::Failure);
     }
 
     pub(super) fn on_rate_limit_error(&mut self, error_kind: RateLimitErrorKind, message: String) {
@@ -449,7 +449,7 @@ impl ChatWidget {
             self.finalize_turn();
             self.add_to_history(history_cell::new_safety_access_block_event());
             self.request_redraw();
-            self.maybe_send_next_queued_input();
+            self.maybe_send_next_queued_input_after(QueueTurnOutcome::Failure);
         } else if let Some(info) = codex_error_info
             .as_ref()
             .and_then(app_server_rate_limit_error_kind)

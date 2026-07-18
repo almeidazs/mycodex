@@ -31,7 +31,7 @@ impl ChatWidget {
                 }
                 let should_submit_now = self.is_session_configured()
                     && !self.is_plan_streaming_in_tui()
-                    && !self.input_queue.suppress_queue_autosend;
+                    && !self.input_queue.is_queue_autosend_blocked();
                 if should_submit_now {
                     if self.only_user_shell_commands_running()
                         && !user_message.text.starts_with('!')
@@ -85,7 +85,7 @@ impl ChatWidget {
     }
 
     pub(super) fn on_modal_or_popup_closed(&mut self) {
-        if self.input_queue.suppress_queue_autosend {
+        if self.input_queue.is_queue_autosend_blocked() {
             self.app_event_tx.send(AppEvent::SettingsSelectionClosed);
         } else {
             self.maybe_send_next_queued_input();
@@ -109,7 +109,7 @@ impl ChatWidget {
     ) {
         if !self.is_session_configured()
             || self.is_user_turn_pending_or_running()
-            || self.input_queue.suppress_queue_autosend
+            || self.input_queue.is_queue_autosend_blocked()
         {
             self.input_queue
                 .queued_user_messages
@@ -117,6 +117,7 @@ impl ChatWidget {
                     user_message,
                     action,
                     pending_pastes,
+                    condition: QueuedMessageCondition::Always,
                 });
             self.input_queue
                 .queued_user_message_history_records
@@ -129,7 +130,15 @@ impl ChatWidget {
 
     /// If idle and there are queued inputs, submit exactly one to start the next turn.
     pub(crate) fn maybe_send_next_queued_input(&mut self) -> bool {
-        if self.input_queue.suppress_queue_autosend {
+        self.maybe_send_next_queued_input_for(/*outcome*/ None)
+    }
+
+    pub(super) fn maybe_send_next_queued_input_after(&mut self, outcome: QueueTurnOutcome) -> bool {
+        self.maybe_send_next_queued_input_for(Some(outcome))
+    }
+
+    fn maybe_send_next_queued_input_for(&mut self, outcome: Option<QueueTurnOutcome>) -> bool {
+        if self.input_queue.is_queue_autosend_blocked() {
             return false;
         }
         if self.blocks_direct_input {
@@ -140,7 +149,9 @@ impl ChatWidget {
         }
         let mut submitted_follow_up = false;
         while !self.is_user_turn_pending_or_running() {
-            let Some((queued_message, history_record)) = self.pop_next_queued_user_message() else {
+            let Some((queued_message, history_record)) =
+                self.pop_next_queued_user_message_for(outcome)
+            else {
                 break;
             };
             match queued_message.action {

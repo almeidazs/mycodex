@@ -275,7 +275,7 @@ impl ChatWidget {
                     self.last_non_retry_error = None;
                     self.finalize_turn();
                     self.request_redraw();
-                    self.maybe_send_next_queued_input();
+                    self.maybe_send_next_queued_input_after(QueueTurnOutcome::Failure);
                 }
             }
             TurnStatus::InProgress => {}
