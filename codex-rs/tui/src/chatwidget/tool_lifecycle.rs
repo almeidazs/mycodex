@@ -152,13 +152,22 @@ impl ChatWidget {
     }
 
     pub(crate) fn handle_file_change_completed_now(&mut self, item: ThreadItem) {
-        let ThreadItem::FileChange { status, .. } = item else {
+        let ThreadItem::FileChange {
+            changes, status, ..
+        } = item
+        else {
             return;
         };
+        for change in &changes {
+            self.recap_changed_file(change.path.clone());
+        }
         // If the patch was successful, just let the "Edited" block stand.
         // Otherwise, add a failure block.
         if matches!(status, codex_app_server_protocol::PatchApplyStatus::Failed) {
+            self.recap_problem("Patch apply failed".to_string());
             self.add_to_history(history_cell::new_patch_apply_failure(String::new()));
+        } else if !changes.is_empty() {
+            self.recap_completed(format!("Edited {} files", changes.len()));
         }
         // Mark that actual work was done (patch applied)
         self.transcript.had_work_activity = true;

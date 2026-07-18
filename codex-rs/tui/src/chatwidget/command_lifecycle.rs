@@ -179,12 +179,16 @@ impl ChatWidget {
             existing.call_id = call_id.to_string();
             existing.command_display = command_display;
             existing.recent_chunks.clear();
+            existing.detected_urls.clear();
+            existing.ready_notified = false;
         } else {
             self.unified_exec_processes.push(UnifiedExecProcessSummary {
                 key,
                 call_id: call_id.to_string(),
                 command_display,
                 recent_chunks: Vec::new(),
+                detected_urls: Vec::new(),
+                ready_notified: false,
             });
         }
         self.sync_unified_exec_footer();
@@ -230,12 +234,37 @@ impl ChatWidget {
             .filter(|line| !line.is_empty())
         {
             process.recent_chunks.push(line.to_string());
+            if let Some(url) = local_url_from_text(line)
+                && !process
+                    .detected_urls
+                    .iter()
+                    .any(|existing| existing == &url)
+            {
+                process.detected_urls.push(url);
+            }
         }
 
         const MAX_RECENT_CHUNKS: usize = 3;
         if process.recent_chunks.len() > MAX_RECENT_CHUNKS {
             let drop_count = process.recent_chunks.len() - MAX_RECENT_CHUNKS;
             process.recent_chunks.drain(0..drop_count);
+        }
+
+        let ready_url = if process.ready_notified
+            || process.detected_urls.is_empty()
+            || !is_likely_dev_server_command(&process.command_display)
+        {
+            None
+        } else {
+            process.ready_notified = true;
+            Some(process.detected_urls[0].clone())
+        };
+
+        if let Some(url) = ready_url {
+            self.add_info_message(
+                "✓ Development server ready".to_string(),
+                Some(format!("{url}\n[o] open browser  [l] logs  [k] stop")),
+            );
         }
     }
 
@@ -365,6 +394,14 @@ impl ChatWidget {
         let is_unified_exec_interaction =
             matches!(source, ExecCommandSource::UnifiedExecInteraction);
         let is_user_shell = source == ExecCommandSource::UserShell;
+        let recap_command_display = command.join(" ");
+        let recap_summary =
+            command_recap_summary(&recap_command_display, exit_code, &aggregated_output);
+        if exit_code == 0 {
+            self.recap_completed(recap_summary);
+        } else {
+            self.recap_problem(recap_summary);
+        }
         let end_target = match self.transcript.active_cell.as_ref() {
             Some(cell) => match cell.as_any().downcast_ref::<ExecCell>() {
                 Some(exec_cell) if exec_cell.iter_calls().any(|call| call.call_id == id) => {
@@ -455,4 +492,67 @@ impl ChatWidget {
             self.maybe_send_next_queued_input();
         }
     }
+}
+
+fn command_recap_summary(command: &str, exit_code: i32, output: &str) -> String {
+    let lower = command.to_ascii_lowercase();
+    let verb = if exit_code == 0 {
+        "Completed"
+    } else {
+        "Failed"
+    };
+    let label = if lower.contains("test") {
+        "tests"
+    } else if lower.contains("typecheck") || lower.contains("tsc") {
+        "typecheck"
+    } else if lower.contains("fmt") || lower.contains("format") {
+        "format"
+    } else if lower.contains("clippy") || lower.contains("lint") || lower.contains("fix") {
+        "lint"
+    } else if lower.contains("build") || lower.contains("check") {
+        "build/check"
+    } else {
+        command
+    };
+    let mut summary = format!("{verb} {label}");
+    if exit_code != 0 {
+        summary.push_str(&format!(" (exit {exit_code})"));
+    }
+    if let Some(problem) = first_error_line(output) {
+        summary.push_str(": ");
+        summary.push_str(problem);
+    }
+    summary
+}
+
+fn first_error_line(output: &str) -> Option<&str> {
+    output.lines().map(str::trim).find(|line| {
+        let lower = line.to_ascii_lowercase();
+        !line.is_empty()
+            && (lower.contains("error") || lower.contains("failed") || lower.contains("panic"))
+    })
+}
+
+fn local_url_from_text(text: &str) -> Option<String> {
+    text.split_whitespace().find_map(|token| {
+        let candidate =
+            token.trim_matches(|ch: char| matches!(ch, ',' | '.' | ')' | ']' | '}' | '\'' | '"'));
+        let is_local_url = candidate.starts_with("http://localhost:")
+            || candidate.starts_with("https://localhost:")
+            || candidate.starts_with("http://127.0.0.1:")
+            || candidate.starts_with("https://127.0.0.1:");
+        is_local_url.then(|| candidate.to_string())
+    })
+}
+
+fn is_likely_dev_server_command(command: &str) -> bool {
+    let command = command.to_ascii_lowercase();
+    command.contains(" dev")
+        || command.ends_with(" dev")
+        || command.contains("pnpm dev")
+        || command.contains("npm run dev")
+        || command.contains("yarn dev")
+        || command.contains("bun dev")
+        || command.contains("vite")
+        || command.contains("next dev")
 }

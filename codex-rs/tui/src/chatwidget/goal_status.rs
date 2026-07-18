@@ -23,6 +23,14 @@ impl GoalStatusState {
         self.goal.status == AppThreadGoalStatus::Active
     }
 
+    pub(super) fn recap_summary(&self) -> String {
+        format!(
+            "{} ({})",
+            self.goal.objective,
+            crate::goal_display::goal_status_label(self.goal.status)
+        )
+    }
+
     pub(super) fn indicator(
         &self,
         now: Instant,
